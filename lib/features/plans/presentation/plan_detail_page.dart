@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../data/repositories/plan_repository.dart';
 import '../data/models/plan_model.dart';
@@ -15,13 +16,14 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
 
   final _nameController = TextEditingController();
   final _goalController = TextEditingController();
-  final _rewardController = TextEditingController();
+  final _rewardController = TextEditingController(text: '0');
   DateTime _startDate = DateTime.now();
+  DateTime? _endDate;
   String _frequency = '每日';
 
   Plan? _editingPlan;
 
- final planRepository = PlanRepository(); 
+  // final planRepository = PlanRepository();
 
   @override
   void didChangeDependencies() {
@@ -33,11 +35,19 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
       _goalController.text = arg.goalCount.toString();
       _rewardController.text = arg.reward.toStringAsFixed(0);
       _startDate = arg.startDate;
+      _endDate = arg.endDate;
       _frequency = arg.frequency;
     }
   }
 
-  Future<void> _pickDate() async {
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _goalController.dispose();
+    _rewardController.dispose();
+    super.dispose();
+  }
+Future<void> _pickStartDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _startDate,
@@ -49,46 +59,66 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
     }
   }
 
-  void _save() {
+  Future<void> _pickEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate,
+      firstDate: _startDate,
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _endDate = picked);
+    }
+  }
+  void _clearEndDate() {
+    setState(() => _endDate = null);
+  }
+
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final plan = (_editingPlan ?? Plan(
-      id: UniqueKey().toString(),
-      name: '',
-      goalCount: 0,
-      startDate: _startDate,
-      frequency: '',
-      reward: 0,
-    )).copyWith(
-      name: _nameController.text,
-      goalCount: int.tryParse(_goalController.text) ?? 0,
-      startDate: _startDate,
-      frequency: _frequency,
-      reward: double.tryParse(_rewardController.text) ?? 0,
-    );
+    final plan =
+        (_editingPlan ??
+                Plan(
+                  id: UniqueKey().toString(),
+                  name: '',
+                  goalCount: 0,
+                  startDate: _startDate,
+                  endDate: _endDate,
+                  frequency: '',
+                  reward: 0,
+                ))
+            .copyWith(
+              name: _nameController.text,
+              goalCount: int.tryParse(_goalController.text) ?? 0,
+              startDate: _startDate,
+              endDate: _endDate,
+              frequency: _frequency,
+              reward: double.tryParse(_rewardController.text) ?? 0,
+            );
 
     if (_editingPlan != null) {
-      planRepository.update(plan);
+      await planRepository.update(plan);
     } else {
-      planRepository.add(plan);
+      await planRepository.add(plan);
     }
 
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
-  void _delete() {
+  Future<void> _delete() async {
     if (_editingPlan != null) {
-      planRepository.delete(_editingPlan!.id);
+      await planRepository.delete(_editingPlan!.id);
     }
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_editingPlan == null ? '新增計畫' : '編輯計畫'),
-      ),
+      appBar: AppBar(title: Text(_editingPlan == null ? '新增計畫' : '編輯計畫')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -114,11 +144,36 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                   labelText: '開始時間',
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.calendar_today),
-                    onPressed: _pickDate,
+                    onPressed: _pickStartDate,
                   ),
                 ),
                 controller: TextEditingController(
                   text: DateFormat.yMMMd().format(_startDate),
+                ),
+              ),
+              TextFormField(
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: '結束時間',
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_endDate != null)
+                        IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: _clearEndDate,
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.calendar_today),
+                        onPressed: _pickEndDate,
+                      ),
+                    ],
+                  ),
+                ),
+                controller: TextEditingController(
+                  text: _endDate != null
+                      ? DateFormat.yMMMd().format(_endDate!)
+                      : '未設定',
                 ),
               ),
               DropdownButtonFormField<String>(
@@ -127,12 +182,16 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                 items: ['每日', '每週', '每月']
                     .map((f) => DropdownMenuItem(value: f, child: Text(f)))
                     .toList(),
-                onChanged: (value) => setState(() => _frequency = value ?? '每日'),
+                onChanged: (value) =>
+                    setState(() => _frequency = value ?? '每日'),
               ),
               TextFormField(
                 controller: _rewardController,
                 decoration: const InputDecoration(labelText: '獎勵金額'),
                 keyboardType: TextInputType.number,
+                 inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly
+              ],
                 validator: (value) =>
                     value == null || value.isEmpty ? '請輸入金額' : null,
               ),
@@ -150,7 +209,9 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                       onPressed: _delete,
                       icon: const Icon(Icons.delete),
                       label: const Text('刪除'),
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
                     ),
                 ],
               ),

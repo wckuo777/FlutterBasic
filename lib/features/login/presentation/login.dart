@@ -4,7 +4,7 @@ class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
   void _goToHome(BuildContext context) {
-    Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pushReplacementNamed(context, '/main');
   }
 
   @override

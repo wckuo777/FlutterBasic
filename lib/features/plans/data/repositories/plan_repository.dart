@@ -1,8 +1,46 @@
 import 'dart:collection';
+import 'package:plans_record_flt/core/db/app_database.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/plan_model.dart';
 
 class PlanRepository {
+  // sqllite
+  Future<List<Plan>> getAll() async {
+    final db = await AppDatabase.database;
+    final maps = await db.query('plans');
+    return maps.map((map) => Plan.fromMap(map)).toList();
+  }
+
+  Future<Plan?> getById(String id) async {
+    final db = await AppDatabase.database;
+    final maps = await db.query('plans', where: 'id = ?', whereArgs: [id]);
+    if (maps.isNotEmpty) {
+      return Plan.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  Future<void> add(Plan plan) async {
+    final db = await AppDatabase.database;
+    await db.insert('plans', plan.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> update(Plan plan) async {
+    final db = await AppDatabase.database;
+    await db.update(
+      'plans',
+      plan.toMap(),
+      where: 'id = ?',
+      whereArgs: [plan.id],
+    );
+  }
+
+  Future<void> delete(String id) async {
+    final db = await AppDatabase.database;
+    await db.delete('plans', where: 'id = ?', whereArgs: [id]);
+  }
+  // fake
   final List<Plan> _plans = [
     Plan(
       id: const Uuid().v4(),
@@ -22,9 +60,9 @@ class PlanRepository {
     ),
   ];
 
-  List<Plan> getAll() => UnmodifiableListView(_plans);
+  List<Plan> getAllfake() => UnmodifiableListView(_plans);
 
-  Plan? getById(String id) {
+  Plan? getByIdfake(String id) {
     try {
       return _plans.firstWhere((p) => p.id == id);
     } catch (_) {
@@ -32,18 +70,18 @@ class PlanRepository {
     }
   }
 
-  void add(Plan plan) {
+  void addfake(Plan plan) {
     _plans.add(plan);
   }
 
-  void update(Plan updated) {
+  void updatefake(Plan updated) {
     final index = _plans.indexWhere((p) => p.id == updated.id);
     if (index != -1) {
       _plans[index] = updated;
     }
   }
 
-  void delete(String id) {
+  void deletefake(String id) {
     _plans.removeWhere((p) => p.id == id);
   }
 }
