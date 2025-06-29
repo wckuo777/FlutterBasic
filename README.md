@@ -46,11 +46,24 @@ flutter pub get
 flutter run
 ```
 ## 🎉 tada Android AVD 圖: 
+-清單畫面-
 
 ![清單畫面](readme_chart/view_list.jpg)
+
+-新增-
+
 ![新增](readme_chart/add_plan.jpg)
+
+-編輯-
+
 ![編輯](readme_chart/edit_plan.jpg)
+
+-查詢-
+
 ![查詢](readme_chart/search_list.jpg)
+
+-過濾-
+
 ![過濾](readme_chart/filter_list.jpg)
 
 ## 📱 APK 安裝包(min Android 13)：
